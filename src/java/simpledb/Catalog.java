@@ -22,10 +22,17 @@ public class Catalog {
      * Constructor.
      * Creates a new, empty catalog.
      */
-    public Catalog() {
-        // some code goes here
-    }
 
+    public class Table{       //create a helper class Table to better understand how catalog works
+        private DbFile file;
+        private String name;
+        private String pkeyField;  //each table contains a Dbfile, a name ,and a pkeyField
+        public Table(DbFile f,String n,String p){
+            file=f;
+            name=n;
+            pkeyField=p;
+        }
+    }
     /**
      * Add a new table to the catalog.
      * This table's contents are stored in the specified DbFile.
@@ -35,8 +42,32 @@ public class Catalog {
      * conflict exists, use the last table to be added as the table for a given name.
      * @param pkeyField the name of the primary key field
      */
+
+    private HashMap<Integer,Table> idToTable;   //crate a HashMap so we can easily find table via its id
+    private HashMap<String,Integer> nameToId;   //enable us to find id via its table name
+    private HashMap<Integer,String> idToPkey;   //enable us to find pkey via its id directly
+
+    public Catalog() {
+        // some code goes here
+        idToTable=new HashMap<>();
+        nameToId=new HashMap<>();
+        idToPkey=new HashMap<>();
+    }
+
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+       Table table=new Table(file,name,pkeyField);   //create a new table
+        if (nameToId.containsKey(name)) {
+            //if a name conflict breaks out, use the last table,delete the former table
+            int id = nameToId.get(name);
+            idToTable.remove(id);
+            idToPkey.remove(id);
+            nameToId.remove(name);
+        }
+       idToTable.put(file.getId(),table);
+       nameToId.put(name, file.getId());
+       idToPkey.put(file.getId(),pkeyField);   //store its information
+
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,7 +91,11 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        if(nameToId.containsKey(name))
+            return nameToId.get(name);
+        throw new NoSuchElementException();
+
+        //return 0;
     }
 
     /**
@@ -71,7 +106,11 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(idToTable.containsKey(tableid))
+        {
+            return idToTable.get(tableid).file.getTupleDesc();
+        }
+        throw new NoSuchElementException();
     }
 
     /**
@@ -82,27 +121,38 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if(idToTable.containsKey(tableid))
+            return idToTable.get(tableid).file;
+        //return null;
+        throw new NoSuchElementException();
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
+        if(idToPkey.containsKey(tableid))
+            return idToPkey.get(tableid);
         return null;
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return idToTable.keySet().iterator();
+        //return null;
     }
 
     public String getTableName(int id) {
         // some code goes here
+        if(idToTable.containsKey(id))
+            return idToTable.get(id).name;
         return null;
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        idToTable.clear();
+        nameToId.clear();
+        idToPkey.clear();
     }
     
     /**
