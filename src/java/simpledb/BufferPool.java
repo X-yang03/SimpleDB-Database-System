@@ -77,7 +77,11 @@ public class BufferPool {
             return idToPage.get(pid);
         }
         else {
-            throw new DbException("error");  //implement an eviction policy in the future labs
+            //throw new DbException("error");  //implement an eviction policy in the future labs
+            HeapFile file =(HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());//modified when completing exercise 5
+            HeapPage newPage = (HeapPage) file.readPage(pid);
+            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
+            return newPage;
         }
 
        // return null;
