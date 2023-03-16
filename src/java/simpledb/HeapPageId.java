@@ -1,5 +1,7 @@
 package simpledb;
 
+import java.util.Objects;
+
 /** Unique identifier for HeapPage objects. */
 public class HeapPageId implements PageId {
 
@@ -10,14 +12,18 @@ public class HeapPageId implements PageId {
      * @param tableId The table that is being referenced
      * @param pgNo The page number in that table.
      */
+    private int tableId;
+    private int pgNo;
     public HeapPageId(int tableId, int pgNo) {
         // some code goes here
+        this.tableId=tableId;
+        this.pgNo=pgNo;
     }
 
     /** @return the table associated with this PageId */
     public int getTableId() {
         // some code goes here
-        return 0;
+        return tableId;
     }
 
     /**
@@ -26,7 +32,7 @@ public class HeapPageId implements PageId {
      */
     public int getPageNumber() {
         // some code goes here
-        return 0;
+        return pgNo;
     }
 
     /**
@@ -37,7 +43,8 @@ public class HeapPageId implements PageId {
      */
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return Objects.hash(tableId,pgNo);
+        //throw new UnsupportedOperationException("implement this");
     }
 
     /**
@@ -48,6 +55,11 @@ public class HeapPageId implements PageId {
      *   ids are the same)
      */
     public boolean equals(Object o) {
+        if(o instanceof PageId){
+            PageId id=(PageId) o;
+            if(this.pgNo==((PageId) o).getPageNumber()&&this.tableId==((PageId) o).getTableId())
+                return true;
+        }
         // some code goes here
         return false;
     }
