@@ -26,11 +26,14 @@ public class HeapFile implements DbFile {
     private TupleDesc td;
     private BufferPool bp;
 
+    private int numPage;
+
     public HeapFile(File f, TupleDesc td) {
         // some code goes here
         this.File=f;
         this.td=td;
         bp=Database.getBufferPool();
+        numPage = (int)(File.length()/(bp.getPageSize()));
     }
 
     /**
@@ -39,8 +42,7 @@ public class HeapFile implements DbFile {
      * @return the File backing this HeapFile on disk.
      */
     public File getFile() {
-        // some code goes here
-       // return null;
+
         return File;
     }
 
@@ -65,9 +67,7 @@ public class HeapFile implements DbFile {
      * @return TupleDesc of this DbFile.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
         return td;
-       // throw new UnsupportedOperationException("implement this");
     }
     // see DbFile.java for javadocs
     public Page readPage(PageId pid) {
@@ -91,6 +91,11 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        try(RandomAccessFile f = new RandomAccessFile(File,"rw")){
+            f.seek(page.getId().getPageNumber()*bp.getPageSize());
+            byte[] data = page.getPageData();
+            f.write(data);
+        }
     }
 
     /**
@@ -98,13 +103,35 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-        return (int)Math.ceil(File.length()/(bp.getPageSize()));
+        numPage = (int)(File.length()/(bp.getPageSize()));
+        return numPage;
+
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
+        ArrayList<Page> PageList = new ArrayList<Page>();
+        for(int i=0;i<numPages();i++){
+            HeapPage page = (HeapPage) bp.getPage(tid, new HeapPageId(this.getId(),i),Permissions.READ_WRITE);
+            if(page.getNumEmptySlots()==0)
+                continue;
+            page.insertTuple(t);
+            PageList.add(page);
+            return PageList;
+        }
+        if(PageList.size()==0){
+            HeapPageId newid = new HeapPageId(this.getId(),numPages());//ceate a new page,
+            HeapPage blankPage = new HeapPage(newid,HeapPage.createEmptyPageData());
+            numPage++;
+            writePage(blankPage);
+            HeapPage newPage = (HeapPage) bp.getPage(tid,newid,Permissions.READ_WRITE);
+            newPage.insertTuple(t);
+            newPage.markDirty(true,tid);
+            PageList.add(newPage);
+            return PageList;
+        }
         return null;
         // not necessary for lab1
     }
@@ -113,7 +140,20 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
+        PageId pid = t.getRecordId().getPageId();
+        HeapPage page = null;
+        for(int i=0;i<numPages();i++){
+            if(i == pid.getPageNumber()){
+                page=(HeapPage) bp.getPage(tid,pid,Permissions.READ_WRITE);
+                page.deleteTuple(t);
+            }
+        }
+        if(page == null){
+            throw new DbException("not in this table");
+        }
+        ArrayList<Page> lst = new ArrayList<>();
+        lst.add(page);
+        return lst;
         // not necessary for lab1
     }
 
@@ -147,17 +187,24 @@ public class HeapFile implements DbFile {
         public boolean hasNext() throws DbException, TransactionAbortedException {
             if(TupleIterator==null)
                 return false;
-            if(TupleIterator.hasNext())
+            if(TupleIterator.hasNext()){
                 return true;
-            if(nowPage<numPages()-1)  //When TupleIterator do not has a next() and it is not a null iterator
-            {
-                nowPage++;
-                HeapPageId pid=new HeapPageId(getId(),nowPage);
-                TupleIterator=getTuples(pid);
-                return TupleIterator.hasNext();
             }
-            else
+            while (TupleIterator != null && !TupleIterator.hasNext()) {
+                if (nowPage < numPages()-1)  //When TupleIterator do not has a next() and it is not a null iterator
+                {
+                    nowPage++;
+                    HeapPageId pid = new HeapPageId(getId(), nowPage);
+                    TupleIterator = getTuples(pid);
+                    //return TupleIterator.hasNext();
+                } else{
+                    TupleIterator = null;
+                }
+                    //return false;
+            }
+            if(TupleIterator == null)
                 return false;
+            return TupleIterator.hasNext();
         }
 
         @Override

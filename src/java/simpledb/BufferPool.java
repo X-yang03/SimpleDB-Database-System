@@ -2,7 +2,10 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -149,6 +152,15 @@ public class BufferPool {
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
+        HeapFile table = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> affectedPages = table.insertTuple(tid,t);
+        for(Page page : affectedPages){
+            page.markDirty(true, tid);
+            if (idToPage.size() == numPages) {
+                evictPage();
+            }
+            idToPage.put(page.getId(), page);
+        }
         // not necessary for lab1
     }
 
@@ -168,8 +180,19 @@ public class BufferPool {
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
+        int tableid = t.getRecordId().getPageId().getTableId();
+        HeapFile table = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+        ArrayList<Page> affectedPages = table.deleteTuple(tid,t);
+        for(Page page : affectedPages){
+            page.markDirty(true, tid);
+            if (idToPage.size() == numPages) {
+                evictPage();
+            }
+            idToPage.put(page.getId(), page);
+        }
         // not necessary for lab1
     }
+
 
     /**
      * Flush all dirty pages to disk.
@@ -178,6 +201,12 @@ public class BufferPool {
      */
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
+        for(Map.Entry<PageId , Page> entry : idToPage.entrySet()){
+            Page page = entry.getValue();
+            if(page.isDirty()!=null){
+                flushPage(page.getId());
+            }
+        }
         // not necessary for lab1
 
     }
@@ -193,6 +222,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        idToPage.remove(pid);
     }
 
     /**
@@ -201,6 +231,10 @@ public class BufferPool {
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
+        HeapPage dirty_page = (HeapPage) idToPage.get(pid);
+        HeapFile table = (HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
+        table.writePage(dirty_page);
+        dirty_page.markDirty(false, null);
         // not necessary for lab1
     }
 
@@ -218,6 +252,28 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        for(Page page: idToPage.values()){
+            if(page.isDirty() == null){
+                discardPage(page.getId());
+                idToPage.remove(page.getId());
+                break;
+            }
+        }
+//        PageId evictPageId = null;
+//        Page page = null;
+//        boolean isAllDirty = true;
+//        for (int i = 0; i < idToPage.size(); i++) {
+//
+//            page = idToPage.get(evictPageId);
+//            if (page.isDirty() != null) {
+//
+//            } else {
+//                isAllDirty = false;
+//                discardPage(evictPageId);
+//                idToPage.remove(evictPageId);
+//                break;
+//            }
+//        }
     }
 
 }
