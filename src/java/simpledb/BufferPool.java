@@ -157,7 +157,7 @@ public class BufferPool {
         for(Page page : affectedPages){
             page.markDirty(true, tid);
             if (idToPage.size() == numPages) {
-                evictPage();
+                evictPage();          //when bufferpool is full, evict page
             }
             idToPage.put(page.getId(), page);
         }
@@ -222,7 +222,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
-        idToPage.remove(pid);
+        idToPage.remove(pid);   // delete this page
     }
 
     /**
@@ -259,21 +259,6 @@ public class BufferPool {
                 break;
             }
         }
-//        PageId evictPageId = null;
-//        Page page = null;
-//        boolean isAllDirty = true;
-//        for (int i = 0; i < idToPage.size(); i++) {
-//
-//            page = idToPage.get(evictPageId);
-//            if (page.isDirty() != null) {
-//
-//            } else {
-//                isAllDirty = false;
-//                discardPage(evictPageId);
-//                idToPage.remove(evictPageId);
-//                break;
-//            }
-//        }
     }
 
 }
