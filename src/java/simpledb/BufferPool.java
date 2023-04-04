@@ -2,10 +2,7 @@ package simpledb;
 
 import java.io.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -38,12 +35,21 @@ public class BufferPool {
     public int numPages;
     public HashMap<PageId,Page> idToPage;
 
+    private LinkedList<Page> recentUsedPages;
+
     public BufferPool(int numPages) {
         // some code goes here
         this.numPages=numPages;
         idToPage=new HashMap<>(numPages);
+        recentUsedPages = new LinkedList<Page>();
     }
-    
+
+    private void moveToHead(int i){
+        Page page = recentUsedPages.get(i);
+        recentUsedPages.remove(i);
+        recentUsedPages.add(0,page);
+    }
+
     public static int getPageSize() {
       return pageSize;
     }
@@ -77,13 +83,26 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
         // some code goes here
         if(idToPage.containsKey(pid)){    //if Page pid does exist, return the page
+            int index = 0;          //if the Page exists, then the list recentUsedPages must contains it too
+            for(Page page : recentUsedPages){
+                if(page.getId().equals(pid)) {
+                    moveToHead(index);    //find the required page,and put it at the top as the recent used page
+                    break;
+                }
+                index++;
+            }
             return idToPage.get(pid);
         }
         else {
             //throw new DbException("error");  //implement an eviction policy in the future labs
             HeapFile file =(HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());//modified when completing exercise 5
             HeapPage newPage = (HeapPage) file.readPage(pid);
+            if(idToPage.size() >= numPages){
+                // Using LRU algorithm to evict the last used Page
+                evictPage();
+            }
             idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
+            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
             return newPage;
         }
 
@@ -223,6 +242,14 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         idToPage.remove(pid);   // delete this page
+        int index = 0;
+        for(Page page : recentUsedPages){
+            if(page.getId().equals(pid)){
+                recentUsedPages.remove(index);
+                break;
+            }
+            index++;
+        }
     }
 
     /**
@@ -233,7 +260,7 @@ public class BufferPool {
         // some code goes here
         HeapPage dirty_page = (HeapPage) idToPage.get(pid);
         HeapFile table = (HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
-        table.writePage(dirty_page);
+        table.writePage(dirty_page);  //write any dirty page to disk and mark it as not dirty, while leaving it in the BufferPool
         dirty_page.markDirty(false, null);
         // not necessary for lab1
     }
@@ -252,13 +279,14 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        for(Page page: idToPage.values()){
-            if(page.isDirty() == null){
-                discardPage(page.getId());
-                idToPage.remove(page.getId());
-                break;
-            }
+        Page page = recentUsedPages.removeLast();  //find the last used page
+        try{
+            flushPage(page.getId());    //flush this page to the disk
+        }catch (IOException e){
+            e.printStackTrace();
         }
+        discardPage(page.getId());   //remove it from the BufferPool
+
     }
 
 }
