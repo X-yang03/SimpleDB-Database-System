@@ -183,7 +183,7 @@ public class BufferPool {
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        HeapFile table = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+        DbFile table =  Database.getCatalog().getDatabaseFile(tableId);  //modified in lab5, use DbFile instead of HeapFile
         ArrayList<Page> affectedPages = table.insertTuple(tid,t);
         for(Page page : affectedPages){
             page.markDirty(true, tid);
@@ -270,8 +270,8 @@ public class BufferPool {
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
-        HeapPage dirty_page = (HeapPage) idToPage.get(pid);
-        HeapFile table = (HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
+        Page dirty_page =idToPage.get(pid);
+        DbFile table =  Database.getCatalog().getDatabaseFile(pid.getTableId());
         table.writePage(dirty_page);  //write any dirty page to disk and mark it as not dirty, while leaving it in the BufferPool
         dirty_page.markDirty(false, null);
         // not necessary for lab1
