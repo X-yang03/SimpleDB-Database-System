@@ -195,7 +195,27 @@ public class BTreeFile implements DbFile {
 			Field f) 
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-        return null;
+
+	int pageType = pid.pgcateg();   //get the type of the page(internal/leaf...)
+	if(pageType == BTreePageId.LEAF)  //once we found the leaf page, return it
+		return (BTreeLeafPage) getPage(tid,dirtypages,pid,perm);
+
+	BTreeInternalPage iPage = (BTreeInternalPage) getPage(tid,dirtypages,pid,Permissions.READ_ONLY);
+	//when accessing internal pages, it should be fetched with READ_ONLY permissions;
+
+	Iterator<BTreeEntry> it = iPage.iterator();   //get the entries
+	BTreeEntry entry = null;
+	while(it.hasNext()){
+		entry = it.next();
+		if (f == null)
+			return findLeafPage(tid, dirtypages, entry.getLeftChild(), perm, f);
+			//when f is null,find the most left leaf page
+		Field key = entry.getKey();
+		if(key.compare(Op.GREATER_THAN_OR_EQ,f))   // find the proper entry
+			return findLeafPage(tid,dirtypages,entry.getLeftChild(),perm,f);
+	}
+	return findLeafPage(tid, dirtypages, entry.getRightChild(), perm, f);
+	// in the while above, i did not access the rightChild of the last entry
 	}
 	
 	/**

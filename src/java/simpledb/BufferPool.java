@@ -83,7 +83,7 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
         // some code goes here
         if(idToPage.containsKey(pid)){    //if Page pid does exist, return the page
-            int index = 0;          //if the Page exists, then the list recentUsedPages must contains it too
+            int index = 0;          //if the Page exists, then the list recentUsedPages must contain it too
             for(Page page : recentUsedPages){
                 if(page.getId().equals(pid)) {
                     moveToHead(index);    //find the required page,and put it at the top as the recent used page
@@ -93,7 +93,7 @@ public class BufferPool {
             }
             return idToPage.get(pid);
         }
-        else {
+        else if(pid instanceof HeapPageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
             //throw new DbException("error");  //implement an eviction policy in the future labs
             HeapFile file =(HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());//modified when completing exercise 5
             HeapPage newPage = (HeapPage) file.readPage(pid);
@@ -105,8 +105,20 @@ public class BufferPool {
             recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
             return newPage;
         }
+        else if(pid instanceof BTreePageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
+            //throw new DbException("error");  //implement an eviction policy in the future labs
+            BTreeFile file =(BTreeFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page newPage =  file.readPage(pid);  //use the abstract class Page
+            if(idToPage.size() >= numPages){
+                // Using LRU algorithm to evict the last used Page
+                evictPage();
+            }
+            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
+            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
+            return newPage;
+        }
 
-       // return null;
+       return null;
     }
 
     /**
