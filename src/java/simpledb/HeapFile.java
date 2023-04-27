@@ -114,14 +114,14 @@ public class HeapFile implements DbFile {
         // some code goes here
         ArrayList<Page> PageList = new ArrayList<Page>();
         for(int i=0;i<numPages();i++){
-            HeapPage page = (HeapPage) bp.getPage(tid, new HeapPageId(this.getId(),i),Permissions.READ_WRITE);
-            if(page.getNumEmptySlots()==0)
+            HeapPage page = (HeapPage) bp.getPage(tid, new HeapPageId(this.getId(),i),Permissions.READ_WRITE);  //读取对应页
+            if(page.getNumEmptySlots()==0)     //full
                 continue;
             page.insertTuple(t);
             PageList.add(page);
             return PageList;
         }
-        if(PageList.size()==0){
+        if(PageList.size()==0){    // all full
             HeapPageId newid = new HeapPageId(this.getId(),numPages());//ceate a new page,
             HeapPage blankPage = new HeapPage(newid,HeapPage.createEmptyPageData());
             numPage++;
