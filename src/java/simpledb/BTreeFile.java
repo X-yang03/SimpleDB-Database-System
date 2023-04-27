@@ -675,7 +675,7 @@ public class BTreeFile implements DbFile {
 		// the corresponding parent entry.
 		int thisNum = page.getNumTuples();
 		int siblingNum = sibling.getNumTuples();
-		int distributeNum = (thisNum + siblingNum)/2;
+		int distributeNum = (thisNum + siblingNum)/2;    //the balanced number
 		Iterator<Tuple> it = isRightSibling? sibling.iterator(): sibling.reverseIterator();
 		// if it is a left sibling , use its reverse iterator
 
@@ -685,13 +685,13 @@ public class BTreeFile implements DbFile {
 			sibling.deleteTuple(tp);
 			page.insertTuple(tp);
 			move--;
-		}
+		}             //transport the touples to the page
 
 		Field key =null;
 		if(isRightSibling)
-			key = it.next().getField(sibling.keyField);
+			key = it.next().getField(sibling.keyField);    //if it is the right sibling, use its first touple's keyFiled to set the entry
 		else
-			key = page.iterator().next().getField(page.keyField);
+			key = page.iterator().next().getField(page.keyField);  //if it is the left sibling , use the page
 
 		entry.setKey(key);
 		parent.updateEntry(entry);
@@ -779,16 +779,16 @@ public class BTreeFile implements DbFile {
 
 		int thisNum = page.getNumEntries();
 		int siblingNum = leftSibling.getNumEntries();
-		int distributeNum = (thisNum + siblingNum)/2;
+		int distributeNum = (thisNum + siblingNum)/2;   //balance two internal pages
 
 		Iterator<BTreeEntry> it = leftSibling.reverseIterator();
 		BTreeEntry right = page.iterator().next();
 		BTreeEntry left = it.next();
 		BTreeEntry entry = new BTreeEntry(parentEntry.getKey(),left.getRightChild(),right.getLeftChild());
-		page.insertEntry(entry);
+		page.insertEntry(entry);    //adjust the entry from the parent to the page
 		thisNum++;
 
-		while(thisNum < distributeNum){
+		while(thisNum < distributeNum){     //redistribute the entries
 			leftSibling.deleteKeyAndRightChild(left);
 			page.insertEntry(left);
 			thisNum++;
@@ -797,11 +797,11 @@ public class BTreeFile implements DbFile {
 
 		leftSibling.deleteKeyAndRightChild(left);
 		parentEntry.setKey(left.getKey());
-		parent.updateEntry(parentEntry);
+		parent.updateEntry(parentEntry);    //update the entry in the parent which point to the two page
 
 		dirtypages.put(page.getId(),page);
 		dirtypages.put(leftSibling.getId(),leftSibling);
-		dirtypages.put(parent.getId(),parent);
+		dirtypages.put(parent.getId(),parent);      //put the modified pages into dirtypages
 		updateParentPointers(tid,dirtypages,page);
 	}
 	
@@ -832,6 +832,9 @@ public class BTreeFile implements DbFile {
 		// the corresponding parent entry. Be sure to update the parent
 		// pointers of all children in the entries that were moved.
 
+
+
+		//very likely to the stealFromLeftInternalPage above,only switched the direction
 		int thisNum = page.getNumEntries();
 		int siblingNum = rightSibling.getNumEntries();
 		int distributeNum = (thisNum + siblingNum)/2;
@@ -892,21 +895,21 @@ public class BTreeFile implements DbFile {
 		while (it.hasNext()){
 			Tuple tp = it.next();
 			rightPage.deleteTuple(tp);
-			leftPage.insertTuple(tp);
+			leftPage.insertTuple(tp);    //put the tuples together
 		}
 
 		BTreePageId rightId = rightPage.getRightSiblingId();
 		if(rightId != null){
 			BTreeLeafPage right = (BTreeLeafPage) getPage(tid,dirtypages,rightId,Permissions.READ_WRITE);
 			leftPage.setRightSiblingId(rightId);
-			right.setLeftSiblingId(leftPage.getId());
+			right.setLeftSiblingId(leftPage.getId());    // connect these two leaf pages
 		}
 		else{
-			leftPage.setRightSiblingId(null);
+			leftPage.setRightSiblingId(null);   //leaf page at the edge
 		}
 
-		setEmptyPage(tid,dirtypages,rightPage.getId().getPageNumber());
-		deleteParentEntry(tid,dirtypages,leftPage,parent,parentEntry);
+		setEmptyPage(tid,dirtypages,rightPage.getId().getPageNumber());     //set empty
+		deleteParentEntry(tid,dirtypages,leftPage,parent,parentEntry);    // no need for the parent entry
 
 		dirtypages.put(leftPage.getId(),leftPage);
 		dirtypages.put(parent.getId(),parent);
@@ -944,19 +947,19 @@ public class BTreeFile implements DbFile {
 		// Delete the entry in the parent corresponding to the two pages that are merging -
 		// deleteParentEntry() will be useful here
 
-		BTreeEntry left_last = leftPage.reverseIterator().next();
-		BTreeEntry right_first = rightPage.iterator().next();
+		BTreeEntry left_last = leftPage.reverseIterator().next();   //last of the left page
+		BTreeEntry right_first = rightPage.iterator().next();      //first of the right page
 		BTreeEntry entry = new BTreeEntry(parentEntry.getKey(),left_last.getRightChild(),right_first.getLeftChild());
-		leftPage.insertEntry(entry);
+		leftPage.insertEntry(entry);   // the entry from the parent
 
 		Iterator<BTreeEntry> right_entry = rightPage.iterator();
-		while (right_entry.hasNext()){
+		while (right_entry.hasNext()){          //transport the entries
 			BTreeEntry tmp = right_entry.next();
 			rightPage.deleteKeyAndLeftChild(tmp);
 			leftPage.insertEntry(tmp);
 		}
 
-		updateParentPointers(tid,dirtypages,leftPage);
+		updateParentPointers(tid,dirtypages,leftPage);           //update the parent infomation of all the entries in the left page now
 
 		setEmptyPage(tid,dirtypages,rightPage.getId().getPageNumber());
 
