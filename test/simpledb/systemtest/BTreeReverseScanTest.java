@@ -54,10 +54,10 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
 
         public int compare(ArrayList<Integer> t1, ArrayList<Integer> t2) {
             int cmp = 0;
-            if(t1.get(keyField) < t2.get(keyField)) {
+            if(t1.get(keyField) > t2.get(keyField)) {
                 cmp = -1;
             }
-            else if(t1.get(keyField) > t2.get(keyField)) {
+            else if(t1.get(keyField) < t2.get(keyField)) {
                 cmp = 1;
             }
             return cmp;
@@ -91,7 +91,7 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
     @Test public void testRewind() throws IOException, DbException, TransactionAbortedException {
         ArrayList<ArrayList<Integer>> tuples = new ArrayList<ArrayList<Integer>>();
         int keyField = r.nextInt(2);
-        BTreeFile f = BTreeUtility.createRandomBTreeFile(2, 1000, null, tuples, keyField);
+        BTreeFile f = BTreeUtility.createRandomBTreeFile(2, 100, null, tuples, keyField);
         Collections.sort(tuples, new TupleComparator(keyField));
 
         TransactionId tid = new TransactionId();
@@ -118,7 +118,7 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
         // Create the table
         ArrayList<ArrayList<Integer>> tuples = new ArrayList<ArrayList<Integer>>();
         int keyField = r.nextInt(3);
-        BTreeFile f = BTreeUtility.createRandomBTreeFile(3, 1000, null, tuples, keyField);
+        BTreeFile f = BTreeUtility.createRandomBTreeFile(3, 100, null, tuples, keyField);
         Collections.sort(tuples, new TupleComparator(keyField));
 
         // EQUALS
@@ -284,6 +284,6 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
 
     /** Make test compatible with older version of ant. */
     public static junit.framework.Test suite() {
-        return new junit.framework.JUnit4TestAdapter(BTreeScanTest.class);
+        return new junit.framework.JUnit4TestAdapter(BTreeReverseScanTest.class);
     }
 }

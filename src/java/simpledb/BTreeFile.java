@@ -1420,7 +1420,7 @@ class BTreeFileReverseIterator extends AbstractDbFileIterator {
 		BTreeRootPtrPage rootPtr = (BTreeRootPtrPage) Database.getBufferPool().getPage(
 				tid, BTreeRootPtrPage.getId(f.getId()), Permissions.READ_ONLY);
 		BTreePageId root = rootPtr.getRootId();
-		curp = f.findMostRightLeafPage(tid, null, root, Permissions.READ_ONLY);
+		curp = f.findMostRightLeafPage(tid, new HashMap<PageId, Page>(), root, Permissions.READ_ONLY);
 		it = curp.reverseIterator();
 	}
 
@@ -1612,7 +1612,7 @@ class BTreeReverseSearchIterator extends AbstractDbFileIterator {
 			curp = f.findLeafPage(tid, root, Permissions.READ_ONLY, ipred.getField());
 		}
 		else {
-			curp = f.findMostRightLeafPage(tid, null, root, Permissions.READ_ONLY);
+			curp = f.findMostRightLeafPage(tid, new HashMap<PageId, Page>(), root, Permissions.READ_ONLY);
 		}
 		it = curp.reverseIterator();
 	}
