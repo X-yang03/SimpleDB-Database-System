@@ -93,21 +93,8 @@ public class BufferPool {
             }
             return idToPage.get(pid);
         }
-        else if(pid instanceof HeapPageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
-            //throw new DbException("error");  //implement an eviction policy in the future labs
-            HeapFile file =(HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());//modified when completing exercise 5
-            HeapPage newPage = (HeapPage) file.readPage(pid);
-            if(idToPage.size() >= numPages){
-                // Using LRU algorithm to evict the last used Page
-                evictPage();
-            }
-            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
-            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
-            return newPage;
-        }
-        else if(pid instanceof BTreePageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
-            //throw new DbException("error");  //implement an eviction policy in the future labs
-            BTreeFile file =(BTreeFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
+        else {
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page newPage =  file.readPage(pid);  //use the abstract class Page
             if(idToPage.size() >= numPages){
                 // Using LRU algorithm to evict the last used Page
@@ -117,8 +104,32 @@ public class BufferPool {
             recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
             return newPage;
         }
-
-       return null;
+//        else if(pid instanceof HeapPageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
+//            //throw new DbException("error");  //implement an eviction policy in the future labs
+//            HeapFile file =(HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());//modified when completing exercise 5
+//            HeapPage newPage = (HeapPage) file.readPage(pid);
+//            if(idToPage.size() >= numPages){
+//                // Using LRU algorithm to evict the last used Page
+//                evictPage();
+//            }
+//            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
+//            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
+//            return newPage;
+//        }
+//        else if(pid instanceof BTreePageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
+//            //throw new DbException("error");  //implement an eviction policy in the future labs
+//            BTreeFile file =(BTreeFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
+//            Page newPage =  file.readPage(pid);  //use the abstract class Page
+//            if(idToPage.size() >= numPages){
+//                // Using LRU algorithm to evict the last used Page
+//                evictPage();
+//            }
+//            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
+//            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
+//            return newPage;
+//        }
+//
+//       return null;
     }
 
     /**
