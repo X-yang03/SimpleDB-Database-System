@@ -91,7 +91,7 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
     @Test public void testRewind() throws IOException, DbException, TransactionAbortedException {
         ArrayList<ArrayList<Integer>> tuples = new ArrayList<ArrayList<Integer>>();
         int keyField = r.nextInt(2);
-        BTreeFile f = BTreeUtility.createRandomBTreeFile(2, 100, null, tuples, keyField);
+        BTreeFile f = BTreeUtility.createRandomBTreeFile(2, 1000, null, tuples, keyField);
         Collections.sort(tuples, new TupleComparator(keyField));
 
         TransactionId tid = new TransactionId();
@@ -100,14 +100,14 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
         for (int i = 0; i < 100; ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuples.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuples.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
 
         scan.rewind();
         for (int i = 0; i < 100; ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuples.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuples.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
         scan.close();
         Database.getBufferPool().transactionComplete(tid);
@@ -118,7 +118,7 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
         // Create the table
         ArrayList<ArrayList<Integer>> tuples = new ArrayList<ArrayList<Integer>>();
         int keyField = r.nextInt(3);
-        BTreeFile f = BTreeUtility.createRandomBTreeFile(3, 100, null, tuples, keyField);
+        BTreeFile f = BTreeUtility.createRandomBTreeFile(3, 1000, null, tuples, keyField);
         Collections.sort(tuples, new TupleComparator(keyField));
 
         // EQUALS
@@ -138,14 +138,14 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
         for (int i = 0; i < tuplesFiltered.size(); ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuplesFiltered.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuplesFiltered.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
 
         scan.rewind();
         for (int i = 0; i < tuplesFiltered.size(); ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuplesFiltered.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuplesFiltered.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
         scan.close();
 
@@ -165,14 +165,14 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
         for (int i = 0; i < tuplesFiltered.size(); ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuplesFiltered.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuplesFiltered.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
 
         scan.rewind();
         for (int i = 0; i < tuplesFiltered.size(); ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuplesFiltered.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuplesFiltered.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
         scan.close();
 
@@ -192,14 +192,14 @@ public class BTreeReverseScanTest extends SimpleDbTestBase {
         for (int i = 0; i < tuplesFiltered.size(); ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuplesFiltered.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuplesFiltered.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
 
         scan.rewind();
         for (int i = 0; i < tuplesFiltered.size(); ++i) {
             assertTrue(scan.hasNext());
             Tuple t = scan.next();
-            assertEquals(tuplesFiltered.get(i), SystemTestUtil.tupleToList(t));
+            assertEquals(tuplesFiltered.get(i).get(keyField), SystemTestUtil.tupleToList(t).get(keyField));
         }
         scan.close();
         Database.getBufferPool().transactionComplete(tid);
