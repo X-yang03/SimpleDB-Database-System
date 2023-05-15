@@ -1,5 +1,7 @@
 package simpledb;
 
+import javafx.print.PageLayout;
+
 import java.io.*;
 
 import java.util.*;
@@ -37,12 +39,153 @@ public class BufferPool {
 
     private LinkedList<Page> recentUsedPages;
 
+    private class Lock{
+        public static final int SHARE = 0;  //0 stands for shared lock,
+        // Multiple transactions can have a shared lock on an object before reading
+        public static final int EXCLUSIVE = 1;  //1 stands for exclusive lock,
+        // Only one transaction may have an exclusive lock on an object before writing
+        private TransactionId tid;
+        private int type;
+
+        public Lock(TransactionId tid, int type){
+            this.tid =  tid;
+            this.type = type;
+        }
+        public TransactionId getTid() {
+            return tid;
+        }
+        public int getType() {
+            return type;
+        }
+
+        public void setType(int type) {
+            this.type = type;
+        }
+    }
+
+    private class LockManager{
+        private ConcurrentHashMap<PageId,ConcurrentHashMap<TransactionId,Lock>> pageLocks;
+        //use concurrentHashMap instead of HashMap cuz it's safer than the latter
+        //when facing multiple threads
+
+        public LockManager(){
+            pageLocks = new ConcurrentHashMap<PageId,ConcurrentHashMap<TransactionId,Lock>>();
+        }
+
+        public synchronized boolean acqureLock(PageId pid,TransactionId tid,int lockType)
+                throws TransactionAbortedException {
+            if(pageLocks.get(pid)==null){  // no exsisting locks, create newPageLock and return ture
+                Lock newLock = new Lock(tid,lockType);
+                ConcurrentHashMap<TransactionId,Lock> newPageLock = new ConcurrentHashMap<>();
+                newPageLock.put(tid,newLock);
+                pageLocks.put(pid,newPageLock);
+                return true;
+            }
+            //if there's locks already
+            ConcurrentHashMap<TransactionId,Lock> nowPageLock = pageLocks.get(pid);
+
+            if(nowPageLock.get(tid)==null){   //no locks from tid
+                if(nowPageLock.size()>1){  //exists locks from other transactions
+                    if(lockType == Lock.SHARE){
+                        Lock newLock = new Lock(tid,lockType); //if requring a read lock
+                        nowPageLock.put(tid,newLock);
+                        pageLocks.put(pid,nowPageLock);
+                        return true;
+                    }
+                    else{  //requiring a write lock
+                        return false;
+                    }
+                }
+                else if(nowPageLock.size()==1){  //only one other lock,could be a read or write lock
+                    Lock existLock = null;
+                    for(Lock lock:nowPageLock.values())
+                        existLock = lock;
+                    if(existLock.getType() == Lock.SHARE){  // if it is a read lock
+                        if(lockType == Lock.SHARE){// require a read lock too, return true
+                            Lock newLock = new Lock(tid,lockType);
+                            nowPageLock.put(tid,newLock);
+                            pageLocks.put(pid,nowPageLock);
+                            return true;
+                        }
+                        else if(lockType == Lock.EXCLUSIVE){
+                            return false;
+                        }
+                    }
+                    else if(existLock.getType() == Lock.EXCLUSIVE){ //some transaction is writing this page
+                        return false;
+                    }
+                }
+            }
+            else{
+                Lock preLock = nowPageLock.get(tid);
+                if(preLock.getType() == Lock.SHARE){  //if previous lock is a read lock
+                    if(lockType == Lock.SHARE){ //and require a read lock too
+                        return true;
+                    }
+                    else{ // if want a write lock
+                        if(nowPageLock.size() == 1){ // if only this tid hold a lock,we could update it
+                            preLock.setType(Lock.EXCLUSIVE);
+                            nowPageLock.put(tid,preLock);
+                            return true;
+                        }
+                        else{
+                            throw new TransactionAbortedException();
+                        }
+                    }
+                }
+
+                else if(preLock.getType() == Lock.EXCLUSIVE){ //the previous one is a write lock
+                    //means no other locks on this page
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public synchronized boolean holdsLock(TransactionId tid,PageId pid){
+            if(pageLocks.get(pid) == null){
+                return false;
+            }
+            ConcurrentHashMap<TransactionId,Lock> nowPageLock = pageLocks.get(pid);
+            if(nowPageLock.get(tid) == null){
+                return false;
+            }
+            return true;
+        }
+
+        public  synchronized boolean releaseLock(TransactionId tid,PageId pid){
+            if(holdsLock(tid,pid)){
+                ConcurrentHashMap<TransactionId,Lock> nowPageLock = pageLocks.get(pid);
+                nowPageLock.remove(tid);
+                if(nowPageLock.size() == 0){
+                    pageLocks.remove(pid);
+                }
+                this.notifyAll();
+                return true;
+
+            }
+            return false;
+        }
+
+        public synchronized boolean TransactonCommitted(TransactionId tid){ // when a transaction completes,release all the locks
+            for(PageId pid : pageLocks.keySet()){
+                releaseLock(tid,pid);
+            }
+            return true;
+        }
+
+    }
+
+    private LockManager manager;
+
     public BufferPool(int numPages) {
         // some code goes here
         this.numPages=numPages;
         idToPage=new HashMap<>(numPages);
-        recentUsedPages = new LinkedList<Page>();
+        recentUsedPages = new LinkedList<Page>();  //used to evict page
+        manager = new LockManager(); //create a lock manager
     }
+
 
     private void moveToHead(int i){
         Page page = recentUsedPages.get(i);
@@ -82,6 +225,18 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+        int lockType = (perm == Permissions.READ_ONLY)? Lock.SHARE : Lock.EXCLUSIVE;
+        //only READ_ONLY stands for a shared lock
+        long begin = System.currentTimeMillis();
+        boolean ifAcquired = false;
+        while (!ifAcquired){
+            ifAcquired = manager.acqureLock(pid,tid,lockType);
+            long rightNow = System.currentTimeMillis();
+            if(rightNow - begin > 500)
+                throw new TransactionAbortedException();
+        }
+
+//----------------before lab4 -----------------------------------------
         if(idToPage.containsKey(pid)){    //if Page pid does exist, return the page
             int index = 0;          //if the Page exists, then the list recentUsedPages must contain it too
             for(Page page : recentUsedPages){
@@ -104,32 +259,6 @@ public class BufferPool {
             recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
             return newPage;
         }
-//        else if(pid instanceof HeapPageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
-//            //throw new DbException("error");  //implement an eviction policy in the future labs
-//            HeapFile file =(HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());//modified when completing exercise 5
-//            HeapPage newPage = (HeapPage) file.readPage(pid);
-//            if(idToPage.size() >= numPages){
-//                // Using LRU algorithm to evict the last used Page
-//                evictPage();
-//            }
-//            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
-//            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
-//            return newPage;
-//        }
-//        else if(pid instanceof BTreePageId){  //modified in lab5 , to distinct HeapPage and BTreeFildPage
-//            //throw new DbException("error");  //implement an eviction policy in the future labs
-//            BTreeFile file =(BTreeFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
-//            Page newPage =  file.readPage(pid);  //use the abstract class Page
-//            if(idToPage.size() >= numPages){
-//                // Using LRU algorithm to evict the last used Page
-//                evictPage();
-//            }
-//            idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
-//            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
-//            return newPage;
-//        }
-//
-//       return null;
     }
 
     /**
@@ -144,6 +273,7 @@ public class BufferPool {
     public void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        manager.releaseLock(tid,pid);
     }
 
     /**

@@ -115,10 +115,15 @@ public class HeapFile implements DbFile {
         ArrayList<Page> PageList = new ArrayList<Page>();
         for(int i=0;i<numPages();i++){
             HeapPage page = (HeapPage) bp.getPage(tid, new HeapPageId(this.getId(),i),Permissions.READ_WRITE);  //读取对应页
-            if(page.getNumEmptySlots()==0)     //full
+            if(page.getNumEmptySlots()==0) {     //full
+                //added in lab4,when there's no empty slots,we could unlock the page
+                bp.releasePage(tid,new HeapPageId(this.getId(),i));
+                //this will do no harm to 2PL lock,cuz we didn't read any data
                 continue;
+            }
             page.insertTuple(t);
             PageList.add(page);
+            page.markDirty(true,tid); // added in lab4
             return PageList;
         }
         if(PageList.size()==0){    // all full
@@ -153,6 +158,7 @@ public class HeapFile implements DbFile {
         }
         ArrayList<Page> lst = new ArrayList<>();
         lst.add(page);
+        page.markDirty(true,tid);//added in lab4
         return lst;
         // not necessary for lab1
     }
