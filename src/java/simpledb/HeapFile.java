@@ -123,7 +123,7 @@ public class HeapFile implements DbFile {
             }
             page.insertTuple(t);
             PageList.add(page);
-            page.markDirty(true,tid); // added in lab4
+            //page.markDirty(true,tid); // added in lab4
             return PageList;
         }
         if(PageList.size()==0){    // all full
@@ -158,7 +158,7 @@ public class HeapFile implements DbFile {
         }
         ArrayList<Page> lst = new ArrayList<>();
         lst.add(page);
-        page.markDirty(true,tid);//added in lab4
+        //page.markDirty(true,tid);//added in lab4
         return lst;
         // not necessary for lab1
     }

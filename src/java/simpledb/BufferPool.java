@@ -35,9 +35,9 @@ public class BufferPool {
      */
 
     public int numPages;
-    public HashMap<PageId,Page> idToPage;
+    public ConcurrentHashMap<PageId,Page> idToPage;
 
-    private LinkedList<Page> recentUsedPages;
+    private  LinkedList<Page> recentUsedPages;
 
     private class Lock{
         public static final int SHARE = 0;  //0 stands for shared lock,
@@ -181,18 +181,45 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.numPages=numPages;
-        idToPage=new HashMap<>(numPages);
+        idToPage=new ConcurrentHashMap<>(numPages);
         recentUsedPages = new LinkedList<Page>();  //used to evict page
         manager = new LockManager(); //create a lock manager
     }
 
 
-    private void moveToHead(int i){
-        Page page = recentUsedPages.get(i);
+    private synchronized void moveToHead(PageId pid){
+       /* Page page = recentUsedPages.get(i);
         recentUsedPages.remove(i);
+        recentUsedPages.add(0,page);*/
+        int index = 0;
+        String thread = Thread.currentThread().getName();
+        //System.out.println("modify from "+thread);
+        for(Page page : recentUsedPages){
+
+            if(page.getId().equals(pid)) {
+                recentUsedPages.remove(index);
+                recentUsedPages.add(0,page);    //find the required page,and put it at the top as the recent used page
+                break;
+            }
+            index++;
+        }
+        //System.out.println("done from "+thread);
+    }
+
+    private synchronized void addRecentUsed(Page page){
         recentUsedPages.add(0,page);
     }
 
+    private synchronized void delRecentUsed(PageId pid){
+        int index = 0;
+        for(Page prePage:recentUsedPages){
+            if(pid.equals(prePage.getId())) {
+                recentUsedPages.remove(index);
+                break;
+            }
+            index++;
+        }
+    }
     public static int getPageSize() {
       return pageSize;
     }
@@ -232,20 +259,16 @@ public class BufferPool {
         while (!ifAcquired){
             ifAcquired = manager.acqureLock(pid,tid,lockType);
             long rightNow = System.currentTimeMillis();
-            if(rightNow - begin > 500)
+            if(rightNow - begin > 500) {  //timeout policy
+                //System.out.println("time out"+begin+"  "+rightNow);
                 throw new TransactionAbortedException();
+            }
         }
 
 //----------------before lab4 -----------------------------------------
         if(idToPage.containsKey(pid)){    //if Page pid does exist, return the page
             int index = 0;          //if the Page exists, then the list recentUsedPages must contain it too
-            for(Page page : recentUsedPages){
-                if(page.getId().equals(pid)) {
-                    moveToHead(index);    //find the required page,and put it at the top as the recent used page
-                    break;
-                }
-                index++;
-            }
+            moveToHead(pid);
             return idToPage.get(pid);
         }
         else {
@@ -256,7 +279,10 @@ public class BufferPool {
                 evictPage();
             }
             idToPage.put(pid,newPage);  //When there's no valid page in BufferPool, find it in the disk and put it into BufferPool
-            recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
+            //recentUsedPages.add(0,newPage);  //add the new Page to the top of the list
+            addRecentUsed(newPage);
+            String t = Thread.currentThread().getName();
+            //System.out.println("add from"+t);
             return newPage;
         }
     }
@@ -284,13 +310,14 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        manager.TransactonCommitted(tid);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return manager.holdsLock(tid,p);
     }
 
     /**
@@ -304,6 +331,26 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        if(commit){
+            try {
+                flushPages(tid);
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+        }
+        else{ //recovery
+            for(Page page : idToPage.values()){
+                PageId pid = page.getId();
+                if(tid.equals(page.isDirty())){    //if tid has modified this page,we try to recover it
+                    int tableId = pid.getTableId();
+                    DbFile file = Database.getCatalog().getDatabaseFile(tableId);
+                    Page recoverPage = file.readPage(pid);   //reload the page
+                    idToPage.put(pid,recoverPage);
+                    recentUsedPages.add(0,recoverPage);  //reput it
+                }
+            }
+        }
+        manager.TransactonCommitted(tid);
     }
 
     /**
@@ -331,7 +378,12 @@ public class BufferPool {
             if (idToPage.size() == numPages) {
                 evictPage();          //when bufferpool is full, evict page
             }
+            if(idToPage.containsKey(page.getId())){  //if map contains the page already ,we connot simply add page to the list
+                delRecentUsed(page.getId());
+            }
             idToPage.put(page.getId(), page);
+
+            recentUsedPages.add(0,page);
         }
         // not necessary for lab1
     }
@@ -360,7 +412,11 @@ public class BufferPool {
             if (idToPage.size() == numPages) {
                 evictPage();
             }
+            if(idToPage.containsKey(page.getId())){  //if map contains the page already ,we connot simply add page to the list
+               delRecentUsed(page.getId());
+            }
             idToPage.put(page.getId(), page);
+            recentUsedPages.add(0,page);
         }
         // not necessary for lab1
     }
@@ -395,14 +451,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         idToPage.remove(pid);   // delete this page
-        int index = 0;
-        for(Page page : recentUsedPages){
-            if(page.getId().equals(pid)){
-                recentUsedPages.remove(index);
-                break;
-            }
-            index++;
-        }
+        delRecentUsed(pid);
     }
 
     /**
@@ -423,6 +472,12 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        for(Page page : idToPage.values()){
+            PageId pid = page.getId();
+            if(tid.equals(page.isDirty())){
+                flushPage(pid);
+            }
+        }
     }
 
     /**
@@ -432,12 +487,19 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        Page page = recentUsedPages.removeLast();  //find the last used page
+        int length = recentUsedPages.size()-1;
+        while (recentUsedPages.get(length).isDirty()!=null){  //NO STEAL policy
+            length--;  //if it is a dirty page,do not evict it
+            if(length<0)
+                throw new DbException("all pages are dirty");
+        }
+        Page page = recentUsedPages.remove(length);
+        /*Page page = recentUsedPages.removeLast();  //find the last used page
         try{
             flushPage(page.getId());    //flush this page to the disk
         }catch (IOException e){
             e.printStackTrace();
-        }
+        }*/
         discardPage(page.getId());   //remove it from the BufferPool
 
     }
