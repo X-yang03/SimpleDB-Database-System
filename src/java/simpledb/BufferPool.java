@@ -188,20 +188,16 @@ public class BufferPool {
 
 
     private synchronized void moveToHead(PageId pid){
-       /* Page page = recentUsedPages.get(i);
-        recentUsedPages.remove(i);
-        recentUsedPages.add(0,page);*/
-        int index = 0;
+
         String thread = Thread.currentThread().getName();
         //System.out.println("modify from "+thread);
-        for(Page page : recentUsedPages){
-
+        for(int i = 0;i<recentUsedPages.size();i++){
+            Page page = recentUsedPages.get(i);
             if(page.getId().equals(pid)) {
-                recentUsedPages.remove(index);
+                recentUsedPages.remove(i);
                 recentUsedPages.add(0,page);    //find the required page,and put it at the top as the recent used page
                 break;
             }
-            index++;
         }
         //System.out.println("done from "+thread);
     }
@@ -211,13 +207,14 @@ public class BufferPool {
     }
 
     private synchronized void delRecentUsed(PageId pid){
-        int index = 0;
-        for(Page prePage:recentUsedPages){
-            if(pid.equals(prePage.getId())) {
-                recentUsedPages.remove(index);
+
+        for(int i = 0;i<recentUsedPages.size();i++){
+            Page page = recentUsedPages.get(i);
+            if(pid.equals(page.getId())) {
+                recentUsedPages.remove(i);
                 break;
             }
-            index++;
+
         }
     }
     public static int getPageSize() {
