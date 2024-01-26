@@ -265,7 +265,7 @@ public class BufferPool {
 //----------------before lab4 -----------------------------------------
         if(idToPage.containsKey(pid)){    //if Page pid does exist, return the page
             int index = 0;          //if the Page exists, then the list recentUsedPages must contain it too
-            moveToHead(pid);
+            //moveToHead(pid);
             return idToPage.get(pid);
         }
         else {

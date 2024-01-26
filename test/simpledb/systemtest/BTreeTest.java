@@ -27,7 +27,7 @@ import simpledb.Predicate.Op;
  */
 public class BTreeTest extends SimpleDbTestBase {
     private final static Random r = new Random();
-    
+    private BufferPool bp = Database.getBufferPool();
     private static final int POLL_INTERVAL = 100;
     
     /**
@@ -115,10 +115,11 @@ public class BTreeTest extends SimpleDbTestBase {
 			// more time to avoid too many deadlock situations
 			Thread.sleep(r.nextInt(POLL_INTERVAL));
 		}
-		
+		//System.out.println("insertttt");
 		for(int i = 0; i < 800; i++) {
 			BTreeInserter bi = startInserter(bf, getRandomTupleData(), insertedTuples);
 			insertThreads.add(bi);
+			//System.out.println(i+" done");
 		}
 		
 		// wait for all threads to finish
@@ -150,6 +151,8 @@ public class BTreeTest extends SimpleDbTestBase {
 			// wait for all threads to finish
 	    	waitForDeleterThreads(deleteThreads);
 		}
+		System.out.println(insertedTuples.size());
+		System.out.println(size);
 		assertTrue(insertedTuples.size() < size);
 		size = insertedTuples.size();
 		
